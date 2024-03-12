@@ -4,9 +4,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns 
 import plotly.express as px
+import schedule
+import time
 
 #Database to store users’ green activities
-UserData = pd.DataFrame(colums=['Username', 'WaterConsumption', 'ElectricityConsumption', 'Transport', 'WasteFood', 'MeatConsumption', 'ConsumptionOrganicFood', 'CyclingWalkingDistance', 'CarpoolingPublicTransport'])
+UserData = pd.DataFrame(colums=['Username', 'WaterConsumption', 'ElectricityConsumption', 'Transport', 'WasteFood', 'MeatConsumption', 'ConsumptionOrganicFood', 'CyclingWalkingDistance', 'CarpoolingPublicTransport', 'Date'])
+UserData['Date'] = pd.to_datetime('today').normalize()
+
+#Function to reset the score every day by keeping the data in a database
+def ResetDailyScore():
+    global UserData
+
+    # Back up historical data
+    HistoricalData = UserData.copy()
+    HistoricalData.to_csv('historical_data.csv', index=False)
+    
+    # Reset the DataFrame UserData
+    UserData = pd.DataFrame(columns=['Username', 'WaterConsumption', 'ElectricityConsumption', 'Transport', 'WasteFood', 'MeatConsumption', 'ConsumptionOrganicFood', 'CyclingWalkingDistance', 'CarpoolingPublicTransport', 'Date'])
 
 #Main Dashboard 
 def DashBoard(username):
@@ -25,6 +39,9 @@ def DashBoard(username):
 #Function to calculate user’s ecological footprint
 def CalculateEcologicFootprint(UserActivities):
 
+    # Filter activities by current date
+    UserActivities = UserActivities[UserActivities['Date'] == pd.to_datetime('today').normalize()]
+    
     #Calculation based on ecological activities
     WaterImpact = np.sum(UserActivities['WaterConsumption'] * CoeffWater)
     ElectricityImpact = np.sum(UserActivities['ElectricityConsumption'] * CoeffElectricity)
@@ -71,6 +88,7 @@ def ReportwaterConsumption(UserActivities):
     plt.xlabel('User')
     plt.ylabel('Water Consumption')
     plt.savefig('static/water_consumption_plot.png')
+
 
 def ReportElectricityConsumption(UserActivities): 
     plt.figure(figsize=(10, 6))
@@ -132,19 +150,11 @@ def ReportTotalEcologicImpact(UserActivities):
     fig = px.scatter(UserActivities, x='Username', y='TotalEcologicImpact', title='Total Ecologic Impact')
     fig.write_html('static/TotalEcologicImpact.html')
 
+# Schedule daily reset at midnight
+schedule.every().day.at("00:00").do(ResetDailyScore)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Execution loop to monitor scheduled tasks
+while True:
+    schedule.run_pending()
+    # Wait 20 minutes between each check
+    time.sleep(1200)  
