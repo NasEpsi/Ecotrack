@@ -7,7 +7,7 @@ import plotly.express as px
 import schedule
 import time
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QLineEdit, QStackedWidget
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton, QLineEdit, QStackedWidget, QMessageBox
 from PyQt5.QtCore import Qt, QThread, QTimer
 import requests
 from bs4 import BeautifulSoup
@@ -26,9 +26,10 @@ def ResetDailyScore():
     # Back up historical data
     HistoricalData = UserData.copy()
     HistoricalData.to_csv('historical_data.csv', index=False)
-    
+
     # Reset the DataFrame UserData
     UserData = pd.DataFrame(columns=['Username', 'WaterConsumption', 'ElectricityConsumption', 'Transport', 'WasteFood', 'MeatConsumption', 'ConsumptionOrganicFood', 'CyclingWalkingDistance', 'CarpoolingPublicTransport', 'Date'])
+    UserData['Date'] = pd.to_datetime('today').normalize()
 
 #Coefficient for Ecological Footprint Calculation
 CoeffWater = 0.012
@@ -54,7 +55,7 @@ def CalculateEcologicFootprint(UserActivities):
     wasteFoodImpact = np.sum(UserActivities['WasteFood'] * CoeffWasteFood)
     OrganicFoodImpact = np.sum(UserActivities['ConsumptionOrganicFood'] * CoeffOrganicFood)
     CyclingWalkingDistance = np.sum(UserActivities['CyclingWalkingDistance'] * CoeffCyclingWalkingDistance)
-    CarpoolingPublicTransport = np.subtract(UserActivities['CarpoolingPublicTransport'] * CoeffCarpoolingPublicTransport)
+    CarpoolingPublicTransport = np.sum(UserActivities['CarpoolingPublicTransport'] * CoeffCarpoolingPublicTransport)
 
     TotalEcologicImpact = WaterImpact + ElectricityImpact + TransportImpact + wasteFoodImpact + MeatConsumptionImpact + OrganicFoodImpact + CyclingWalkingDistance + CarpoolingPublicTransport
 
@@ -147,14 +148,19 @@ def ReportTotalEcologicImpact(UserActivities):
 # Function to retrieve ecological tips from an API or web scraping
 def GetEcoTips():
     # Example of web scraping for tips from a website
-    Url = 'https://example.com/eco-tips'
-    Response = requests.get(Url)
-    Soup = BeautifulSoup(Response.text, 'html.parser')
-    Tips = Soup.find_all('div', class_='eco-tip')
+    try:
+        Url = 'https://example.com/eco-tips'
+        Response = requests.get(Url)
+        Soup = BeautifulSoup(Response.text, 'html.parser')
+        Tips = Soup.find_all('div', class_='eco-tip')
     
-    # Retrieve Tips
-    EcoTips = [Tip.text for Tip in Tips]
-    return EcoTips
+        # Retrieve Tips
+        EcoTips = [Tip.text for Tip in Tips]
+        return EcoTips
+    
+    except requests.exceptions.RequestException as e:
+        QMessageBox.critical(self, "Error when accessing the network:", e)
+        return []
 
 # User interface with PyQt
 class EcoTipsWindow(QWidget):
@@ -226,7 +232,7 @@ class ActivitiesPage(QWidget):
         self.layout.addWidget(self.meatConsum_label)
         self.layout.addWidget(self.meatConsum_input)
 
-        self.organicFood_label = QLabel('OrganicFood:')
+        self.organicFood_label = QLabel('ConsumptionOrganicFood:')
         self.organicFood_input = QLineEdit()
         self.layout.addWidget(self.organicFood_label)
         self.layout.addWidget(self.organicFood_input)
@@ -249,14 +255,19 @@ class ActivitiesPage(QWidget):
 
     def submit_activities(self):
         # Retrieve the values entered by the user
-        water_consumption = float(self.water_input.text())
-        electricity_consumption = float(self.electricity_input.text())
-        transport = float(self.transport_input.text())
-        waste_food = float(self.wasteFood_input.text())
-        meat_consumption = float(self.meatConsum_input.text())
-        organic_food = float(self.organicFood_input.text())
-        cycling_walking_distance = float(self.CWD_input.text())
-        carpooling_public_transport = float(self.CPT_input.text())
+        # Add validation to ensure user entries are valid numbers
+        try:
+            water_consumption = float(self.water_input.text())
+            electricity_consumption = float(self.electricity_input.text())
+            transport = float(self.transport_input.text())
+            waste_food = float(self.wasteFood_input.text())
+            meat_consumption = float(self.meatConsum_input.text())
+            organic_food = float(self.organicFood_input.text())
+            cycling_walking_distance = float(self.CWD_input.text())
+            carpooling_public_transport = float(self.CPT_input.text())
+        except ValueError:
+            # Handle error if user entry is not a valid number
+            QMessageBox.critical(self, 'Error', 'Please enter valid numeric values for activities.')
 
         # Add activities to UserData database
         global UserData
@@ -266,7 +277,7 @@ class ActivitiesPage(QWidget):
                                     'Transport': transport,
                                     'WasteFood': waste_food,
                                     'MeatConsumption': meat_consumption,
-                                    'OrganicFood': organic_food,
+                                    'ConsumptionOrganicFood': organic_food,
                                     'CyclingWalkingDistance': cycling_walking_distance,
                                     'CarpoolingPublicTransport': carpooling_public_transport,
                                     'Date': pd.to_datetime('today').normalize()})
@@ -320,28 +331,28 @@ class ReportsPage(QWidget):
 
     
     def generate_water_consumption_report(self):
-        ReportTotalEcologicImpact(UserData)
+        ReportwaterConsumption(UserData)
 
     def generate_electricity_consumption_report(self):
-        ReportTotalEcologicImpact(UserData)
+        ReportElectricityConsumption(UserData)
 
     def generate_transport_report(self):
-        ReportTotalEcologicImpact(UserData)
+        ReportTransport(UserData)
 
     def generate_waste_food_report(self):
-        ReportTotalEcologicImpact(UserData)
+        ReportwasteFood(UserData)
 
     def generate_meat_consumption_report(self):
-        ReportTotalEcologicImpact(UserData)
+        ReportMeatConsumption(UserData)
 
     def generate_organic_food_consumption_report(self):
-        ReportTotalEcologicImpact(UserData)
+        ReportOrganicFood(UserData)
 
     def generate_cycling_and_walking_distance_report(self):
-        ReportTotalEcologicImpact(UserData)
+        ReportCyclingWalkingDistance(UserData)
 
     def generate_carpooling_public_transport_report(self):
-        ReportTotalEcologicImpact(UserData)
+        ReportCarpoolingPublicTransport(UserData)
 
     def generate_total_impact_report(self):
         ReportTotalEcologicImpact(UserData)
