@@ -159,7 +159,7 @@ def GetEcoTips():
         return EcoTips
     
     except requests.exceptions.RequestException as e:
-        QMessageBox.critical(self, "Error when accessing the network:", e)
+        QMessageBox.critical("Error when accessing the network:", e)
         return []
 
 # User interface with PyQt
